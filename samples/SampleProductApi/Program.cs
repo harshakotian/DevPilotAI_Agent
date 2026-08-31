@@ -11,7 +11,7 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<
     IProductService,
     ProductService>();
-
+    
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -42,6 +42,7 @@ app.MapGet("/weatherforecast", () =>
     return forecast;
 })
 .WithName("GetWeatherForecast");
+
 
 app.Run();
 
