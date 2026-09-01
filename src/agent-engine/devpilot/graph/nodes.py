@@ -14,7 +14,10 @@ from devpilot.agents.architect_agent import (
 from devpilot.agents.planning_agent import (
     ImplementationPlanningAgent,
 )
-
+from langgraph.types import interrupt
+from devpilot.models.review import (
+    HumanReviewResult,
+)
 def receive_requirement(
     state: DevPilotState,
 ) -> DevPilotState:
@@ -183,6 +186,23 @@ def design_architecture(
         llm_service=llm_service
     )
 
+    revision_feedback = None
+
+    human_review = state.get(
+        "human_review"
+    )
+
+    if (
+        human_review
+        and human_review.decision.value == "revise"
+        and human_review.revision_target is not None
+        and human_review.revision_target.value
+        == "architecture"
+    ):
+        revision_feedback = "\n".join(
+            human_review.requested_changes
+        )
+
     proposal = architect.design(
         requirement=state["requirement"],
         requirement_analysis=state[
@@ -191,6 +211,7 @@ def design_architecture(
         repository_analysis=state[
             "repository_analysis"
         ],
+        revision_feedback=revision_feedback,
     )
 
     print("Architecture proposal complete.")
@@ -209,6 +230,23 @@ def create_implementation_plan(
 
     llm_service = create_llm_service()
 
+    revision_feedback = None
+
+    human_review = state.get(
+        "human_review"
+    )
+
+    if (
+        human_review
+        and human_review.decision.value == "revise"
+        and human_review.revision_target is not None
+        and human_review.revision_target.value
+        == "implementation_plan"
+    ):
+        revision_feedback = "\n".join(
+            human_review.requested_changes
+        )
+
     planner = ImplementationPlanningAgent(
         llm_service=llm_service
     )
@@ -224,6 +262,7 @@ def create_implementation_plan(
         architecture_proposal=state[
             "architecture_proposal"
         ],
+        revision_feedback=revision_feedback,
     )
 
     print("Implementation plan complete.")
@@ -232,4 +271,119 @@ def create_implementation_plan(
         **state,
         "implementation_plan": plan,
         "status": "implementation_planned",
+    }
+
+def human_review(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Human review required.")
+
+    review_payload = {
+        "message": (
+            "Review the architecture proposal and "
+            "implementation plan."
+        ),
+        "architecture_proposal": (
+            state["architecture_proposal"].model_dump()
+        ),
+        "implementation_plan": (
+            state["implementation_plan"].model_dump()
+        ),
+        "revision_count": state.get(
+            "revision_count",
+            0,
+        ),
+    }
+
+    review_response = interrupt(
+        review_payload
+    )
+
+    review = HumanReviewResult.model_validate(
+        review_response
+    )
+
+    history = list(
+        state.get(
+            "revision_history",
+            [],
+        )
+    )
+
+    history.append(review)
+
+    print()
+    print(
+        f"Human decision received: "
+        f"{review.decision.value}"
+    )
+
+    return {
+        **state,
+        "human_review": review,
+        "revision_history": history,
+        "status": "human_review_completed",
+    }
+
+def approval_completed(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Architecture and implementation plan approved.")
+
+    return {
+        **state,
+        "status": "approved",
+    }
+
+
+def review_rejected(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Architecture or implementation plan rejected.")
+
+    return {
+        **state,
+        "status": "rejected",
+    }
+
+def prepare_revision(
+    state: DevPilotState,
+) -> DevPilotState:
+    review = state["human_review"]
+
+    revision_count = (
+        state.get(
+            "revision_count",
+            0,
+        )
+        + 1
+    )
+
+    print()
+    print(
+        f"Preparing revision "
+        f"#{revision_count}..."
+    )
+
+    return {
+        **state,
+        "revision_count": revision_count,
+        "status": "revision_prepared",
+    }
+
+def revision_limit_reached(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print(
+        "Maximum revision limit reached. "
+        "Manual intervention required."
+    )
+
+    return {
+        **state,
+        "status": "revision_limit_reached",
     }

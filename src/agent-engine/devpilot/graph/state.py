@@ -12,6 +12,7 @@ from devpilot.models.architecture import (
 from devpilot.models.implementation import (
     ImplementationPlan,
 )
+from devpilot.models.review import HumanReviewResult
 
 class DevPilotState(TypedDict, total=False):
     requirement: str
@@ -25,6 +26,10 @@ class DevPilotState(TypedDict, total=False):
 
     architecture_proposal: ArchitectureProposal
     implementation_plan: ImplementationPlan
+
+    human_review: HumanReviewResult
+    revision_count: int
+    revision_history: list[HumanReviewResult]
 
     status: str
     errors: list[str]

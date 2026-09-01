@@ -75,6 +75,24 @@ def main():
         )
     )
 
+    first_decision = {
+        "decision": "revise",
+        "comments": (
+            "Architecture needs stronger Redis "
+            "failure handling."
+        ),
+        "requested_changes": [
+            (
+                "Define behavior when Redis is "
+                "temporarily unavailable."
+            ),
+            (
+                "Avoid coupling ProductService "
+                "directly to Redis-specific APIs."
+            ),
+        ],
+        "revision_target": "architecture",
+    }
 
 if __name__ == "__main__":
     main()

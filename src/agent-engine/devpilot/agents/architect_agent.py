@@ -24,6 +24,7 @@ class ArchitectAgent:
         requirement: str,
         requirement_analysis: RequirementAnalysis,
         repository_analysis: RepositoryAnalysis,
+        revision_feedback: str | None = None,
     ) -> ArchitectureProposal:
         system_prompt = """
 You are a senior software solution architect.
@@ -74,7 +75,20 @@ Rules:
 13. Do not produce source code or an implementation
     task list. Those belong to later workflow stages.
 """
+        
+        revision_section = ""
 
+        if revision_feedback:
+            revision_section = f"""
+        HUMAN REVISION FEEDBACK
+
+        {revision_feedback}
+
+        You are revising a previous architecture proposal.
+        Address the requested changes while preserving valid
+        parts of the existing design.
+        """
+            
         user_prompt = f"""
 ORIGINAL REQUIREMENT
 
@@ -90,6 +104,7 @@ REPOSITORY ANALYSIS
 
 {repository_analysis.model_dump_json(indent=2)}
 
+{revision_section}
 
 Produce an architecture proposal for satisfying the
 requirement while respecting the repository's current

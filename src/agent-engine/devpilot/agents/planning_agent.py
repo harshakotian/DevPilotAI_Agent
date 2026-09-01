@@ -18,6 +18,7 @@ class ImplementationPlanningAgent:
         requirement_analysis: RequirementAnalysis,
         repository_analysis: RepositoryAnalysis,
         architecture_proposal: ArchitectureProposal,
+        revision_feedback: str | None = None,
     ) -> ImplementationPlan:
         system_prompt = """
 You are a senior software implementation planner.
@@ -64,7 +65,19 @@ Rules:
 15. Confidence must be one of:
     low, medium, high.
 """
+        revision_section = ""
 
+        if revision_feedback:
+            revision_section = f"""
+        HUMAN REVISION FEEDBACK
+
+        {revision_feedback}
+
+        Revise the implementation plan to address the human
+        reviewer's requested changes while remaining aligned
+        with the approved architecture proposal.
+        """
+            
         user_prompt = f"""
 ORIGINAL REQUIREMENT
 
@@ -85,6 +98,7 @@ APPROVED ARCHITECTURE PROPOSAL
 
 {architecture_proposal.model_dump_json(indent=2)}
 
+{revision_section}
 
 Produce an ordered engineering implementation plan.
 Do not write source code.
