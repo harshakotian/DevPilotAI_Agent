@@ -11,7 +11,9 @@ from devpilot.models.requirement import RequirementAnalysis
 from devpilot.models.review import HumanReviewResult
 from devpilot.models.security import SecurityReview
 from devpilot.models.testing import TestReview
-
+from devpilot.models.evaluation import (
+    EvaluationResult,
+)
 
 class DevPilotState(TypedDict, total=False):
     requirement: str
@@ -33,6 +35,8 @@ class DevPilotState(TypedDict, total=False):
 
     security_review: SecurityReview
     test_review: TestReview
+    
+    evaluation_result: EvaluationResult
 
     status: str
     errors: list[str]

@@ -25,7 +25,7 @@ def main():
     }
 
     # ---------------------------------------------------------
-    # Thread / Checkpoint Configuration
+    # Thread / Checkpoint Config
     # ---------------------------------------------------------
     thread_id = str(uuid4())
 
@@ -37,18 +37,23 @@ def main():
 
     print()
     print("=" * 70)
-    print("Starting DevPilot AI Workflow")
+    print("Starting DevPilot AI - Checkpoint 8 Test")
     print("=" * 70)
-    print("Thread ID:", thread_id)
+
+    print(
+        "Thread ID:",
+        thread_id,
+    )
 
     # ---------------------------------------------------------
     # Invocation #1
     #
     # Expected:
+    #
     # Requirement
     # -> Repository
-    # -> Architecture
-    # -> Plan
+    # -> Architect
+    # -> Planner
     # -> Human Review
     # -> INTERRUPT
     # ---------------------------------------------------------
@@ -59,7 +64,7 @@ def main():
 
     print()
     print("=" * 70)
-    print("First Human Review Reached")
+    print("Human Review Reached")
     print("=" * 70)
 
     snapshot = workflow.get_state(
@@ -68,213 +73,21 @@ def main():
 
     print(
         "Current Status:",
-        snapshot.values.get("status"),
-    )
-
-    print(
-        "Revision Count:",
         snapshot.values.get(
-            "revision_count",
-            0,
-        ),
-    )
-
-    # ---------------------------------------------------------
-    # Verify specialist reviews have NOT run yet
-    # ---------------------------------------------------------
-    print()
-    print("Before approval:")
-
-    print(
-        "Security Review Exists:",
-        snapshot.values.get(
-            "security_review"
-        )
-        is not None,
-    )
-
-    print(
-        "Test Review Exists:",
-        snapshot.values.get(
-            "test_review"
-        )
-        is not None,
-    )
-
-    # Expected:
-    #
-    # Security Review Exists: False
-    # Test Review Exists: False
-
-    # ---------------------------------------------------------
-    # Human Decision #1
-    #
-    # Request ARCHITECTURE revision.
-    # ---------------------------------------------------------
-    first_decision = {
-        "decision": "revise",
-        "comments": (
-            "Architecture needs stronger Redis "
-            "failure handling."
-        ),
-        "requested_changes": [
-            (
-                "Define explicit application behavior "
-                "when Redis is unavailable."
-            ),
-            (
-                "Avoid coupling ProductService directly "
-                "to Redis-specific APIs."
-            ),
-            (
-                "Ensure the design supports graceful "
-                "fallback to the uncached path."
-            ),
-        ],
-        "revision_target": "architecture",
-    }
-
-    print()
-    print("=" * 70)
-    print("Human Decision #1")
-    print("=" * 70)
-
-    print(
-        "Decision:",
-        first_decision["decision"],
-    )
-
-    print(
-        "Revision Target:",
-        first_decision["revision_target"],
-    )
-
-    print("Requested Changes:")
-
-    for change in first_decision[
-        "requested_changes"
-    ]:
-        print(f"- {change}")
-
-    # ---------------------------------------------------------
-    # Invocation #2
-    #
-    # Expected:
-    #
-    # Resume human_review
-    # -> prepare_revision
-    # -> Architect reruns
-    # -> Planner reruns
-    # -> Human Review again
-    # -> INTERRUPT
-    #
-    # IMPORTANT:
-    # Security/Test should NOT run here.
-    # ---------------------------------------------------------
-    workflow.invoke(
-        Command(
-            resume=first_decision
-        ),
-        config=config,
-    )
-
-    print()
-    print("=" * 70)
-    print("Second Human Review Reached")
-    print("=" * 70)
-
-    revised_snapshot = workflow.get_state(
-        config
-    )
-
-    print(
-        "Current Status:",
-        revised_snapshot.values.get(
             "status"
         ),
     )
 
-    print(
-        "Revision Count:",
-        revised_snapshot.values.get(
-            "revision_count",
-            0,
-        ),
-    )
-
     # ---------------------------------------------------------
-    # Verify specialist reviews STILL have not run
-    # ---------------------------------------------------------
-    print()
-    print("After revision, before second approval:")
-
-    print(
-        "Security Review Exists:",
-        revised_snapshot.values.get(
-            "security_review"
-        )
-        is not None,
-    )
-
-    print(
-        "Test Review Exists:",
-        revised_snapshot.values.get(
-            "test_review"
-        )
-        is not None,
-    )
-
-    # These should still both be False.
-
-    # ---------------------------------------------------------
-    # Show revised architecture
-    # ---------------------------------------------------------
-    architecture = revised_snapshot.values.get(
-        "architecture_proposal"
-    )
-
-    if architecture is not None:
-        print()
-        print("=" * 70)
-        print("Revised Architecture Proposal")
-        print("=" * 70)
-
-        print(
-            architecture.model_dump_json(
-                indent=2
-            )
-        )
-
-    # ---------------------------------------------------------
-    # Show regenerated implementation plan
-    # ---------------------------------------------------------
-    implementation_plan = (
-        revised_snapshot.values.get(
-            "implementation_plan"
-        )
-    )
-
-    if implementation_plan is not None:
-        print()
-        print("=" * 70)
-        print("Regenerated Implementation Plan")
-        print("=" * 70)
-
-        print(
-            implementation_plan.model_dump_json(
-                indent=2
-            )
-        )
-
-    # ---------------------------------------------------------
-    # Human Decision #2
+    # Human Approval
     #
-    # Approve revised architecture + plan.
+    # Allow proposal to move to:
+    # Security + Test Review + Evaluator
     # ---------------------------------------------------------
-    second_decision = {
+    human_decision = {
         "decision": "approve",
         "comments": (
-            "Revised architecture and implementation "
+            "Architecture and implementation "
             "plan approved for specialist review."
         ),
         "requested_changes": [],
@@ -283,57 +96,51 @@ def main():
 
     print()
     print("=" * 70)
-    print("Human Decision #2")
+    print("Human Decision")
     print("=" * 70)
 
     print(
         "Decision:",
-        second_decision["decision"],
-    )
-
-    print(
-        "Comments:",
-        second_decision["comments"],
+        human_decision["decision"],
     )
 
     # ---------------------------------------------------------
-    # Invocation #3
+    # Invocation #2
     #
     # Expected:
     #
-    # Human approval
-    # -> approval_completed
-    # -> Security Review
-    # -> Test Strategy
-    # -> specialist_reviews_completed
-    # -> END
+    # approval_completed
+    #
+    # Security ─┐
+    #           ├─ specialist_reviews_completed
+    # Testing ──┘
+    #
+    # -> Evaluator
+    # -> Evaluation Policy
+    # -> PASS / REVISE / ESCALATE
     # ---------------------------------------------------------
     result = workflow.invoke(
         Command(
-            resume=second_decision
+            resume=human_decision
         ),
         config=config,
     )
 
     # ---------------------------------------------------------
-    # Final Result
+    # Workflow Result
     # ---------------------------------------------------------
     print()
     print("=" * 70)
     print("DevPilot Workflow Complete")
     print("=" * 70)
 
-    print(
-        "Final Status:",
-        result.get("status"),
+    final_status = result.get(
+        "status"
     )
 
     print(
-        "Revision Count:",
-        result.get(
-            "revision_count",
-            0,
-        ),
+        "Final Status:",
+        final_status,
     )
 
     # ---------------------------------------------------------
@@ -346,24 +153,24 @@ def main():
     if security_review is not None:
         print()
         print("=" * 70)
-        print("Security Review")
+        print("Security Review Summary")
         print("=" * 70)
 
         print(
-            security_review.model_dump_json(
-                indent=2
-            )
-        )
-
-        print()
-        print(
-            "Overall Security Risk:",
+            "Overall Risk:",
             security_review.overall_risk.value,
         )
 
         print(
-            "Security Implementation Blocked:",
+            "Implementation Blocked:",
             security_review.implementation_blocked,
+        )
+
+        print(
+            "Finding Count:",
+            len(
+                security_review.findings
+            ),
         )
 
     # ---------------------------------------------------------
@@ -376,23 +183,112 @@ def main():
     if test_review is not None:
         print()
         print("=" * 70)
-        print("Test Strategy Review")
+        print("Test Review Summary")
         print("=" * 70)
 
         print(
-            test_review.model_dump_json(
-                indent=2
-            )
-        )
-
-        print()
-        print(
-            "Testing Implementation Blocked:",
+            "Implementation Blocked:",
             test_review.implementation_blocked,
         )
 
+        print(
+            "Scenario Count:",
+            len(
+                test_review.scenarios
+            ),
+        )
+
     # ---------------------------------------------------------
-    # Final persisted-state verification
+    # Evaluation Result
+    # ---------------------------------------------------------
+    evaluation = result.get(
+        "evaluation_result"
+    )
+
+    if evaluation is not None:
+        print()
+        print("=" * 70)
+        print("Evaluation Result")
+        print("=" * 70)
+
+        print(
+            "Verdict:",
+            evaluation.verdict.value,
+        )
+
+        print(
+            "Implementation Ready:",
+            evaluation.implementation_ready,
+        )
+
+        print(
+            "Confidence:",
+            evaluation.confidence,
+        )
+
+        print()
+        print("Scores")
+
+        print(
+            "Requirement Alignment:",
+            evaluation.scores.requirement_alignment,
+        )
+
+        print(
+            "Architectural Quality:",
+            evaluation.scores.architectural_quality,
+        )
+
+        print(
+            "Implementation Readiness:",
+            evaluation.scores.implementation_readiness,
+        )
+
+        print(
+            "Security Readiness:",
+            evaluation.scores.security_readiness,
+        )
+
+        print(
+            "Test Readiness:",
+            evaluation.scores.test_readiness,
+        )
+
+        print()
+        print("Blocking / Required Revisions")
+
+        if evaluation.required_revisions:
+            for revision in (
+                evaluation.required_revisions
+            ):
+                print(
+                    f"- {revision}"
+                )
+        else:
+            print(
+                "None"
+            )
+
+        if evaluation.escalation_reasons:
+            print()
+            print("Escalation Reasons")
+
+            for reason in (
+                evaluation.escalation_reasons
+            ):
+                print(
+                    f"- {reason}"
+                )
+
+    else:
+        print()
+        print(
+            "WARNING: Evaluation result "
+            "was not generated."
+        )
+
+    # ---------------------------------------------------------
+    # Persisted State Verification
     # ---------------------------------------------------------
     final_snapshot = workflow.get_state(
         config
@@ -400,15 +296,8 @@ def main():
 
     print()
     print("=" * 70)
-    print("Final Checkpoint Verification")
+    print("Checkpoint State Verification")
     print("=" * 70)
-
-    print(
-        "Saved Status:",
-        final_snapshot.values.get(
-            "status"
-        ),
-    )
 
     print(
         "Security Review Stored:",
@@ -427,123 +316,142 @@ def main():
     )
 
     print(
-        "Revision Count:",
+        "Evaluation Result Stored:",
         final_snapshot.values.get(
-            "revision_count",
-            0,
+            "evaluation_result"
+        )
+        is not None,
+    )
+
+    print(
+        "Saved Status:",
+        final_snapshot.values.get(
+            "status"
         ),
     )
 
     # ---------------------------------------------------------
-    # Review History
-    # ---------------------------------------------------------
-    revision_history = (
-        final_snapshot.values.get(
-            "revision_history",
-            [],
-        )
-    )
-
-    print(
-        "Human Review History Entries:",
-        len(revision_history),
-    )
-
-    for index, review in enumerate(
-        revision_history,
-        start=1,
-    ):
-        print()
-        print(
-            f"Review #{index}"
-        )
-
-        print(
-            "Decision:",
-            review.decision.value,
-        )
-
-        if review.revision_target is not None:
-            print(
-                "Revision Target:",
-                review.revision_target.value,
-            )
-
-        print(
-            "Comments:",
-            review.comments,
-        )
-
-    # ---------------------------------------------------------
-    # Checkpoint 7D.11 Assertions
+    # Expected Result for Current Redis Scenario
     # ---------------------------------------------------------
     print()
     print("=" * 70)
-    print("Checkpoint 7D.11 Verification")
+    print("Checkpoint 8 Verification")
     print("=" * 70)
 
-    final_status = result.get(
-        "status"
+    if evaluation is None:
+        print(
+            "CHECKPOINT 8 FAILED:"
+        )
+
+        print(
+            "Evaluator did not produce a result."
+        )
+
+        return
+
+    security_blocked = (
+        security_review is not None
+        and security_review.implementation_blocked
     )
 
-    revision_count = result.get(
-        "revision_count",
-        0,
-    )
-
-    security_exists = (
-        result.get("security_review")
-        is not None
-    )
-
-    testing_exists = (
-        result.get("test_review")
-        is not None
-    )
-
-    status_ok = (
-        final_status
-        == "specialist_reviews_completed"
-    )
-
-    revision_ok = (
-        revision_count == 1
+    test_blocked = (
+        test_review is not None
+        and test_review.implementation_blocked
     )
 
     print(
-        "Final status correct:",
+        "Security Blocked:",
+        security_blocked,
+    )
+
+    print(
+        "Testing Blocked:",
+        test_blocked,
+    )
+
+    print(
+        "Evaluator Verdict:",
+        evaluation.verdict.value,
+    )
+
+    print(
+        "Implementation Ready:",
+        evaluation.implementation_ready,
+    )
+
+    # ---------------------------------------------------------
+    # Policy Assertions
+    # ---------------------------------------------------------
+    policy_ok = True
+
+    if (
+        security_blocked
+        or test_blocked
+    ):
+        if (
+            evaluation.verdict.value
+            == "pass"
+        ):
+            policy_ok = False
+
+            print()
+            print(
+                "ERROR: Blocking specialist "
+                "review incorrectly resulted "
+                "in PASS."
+            )
+
+    if (
+        evaluation.verdict.value
+        != "pass"
+        and evaluation.implementation_ready
+    ):
+        policy_ok = False
+
+        print()
+        print(
+            "ERROR: implementation_ready "
+            "must be False when verdict "
+            "is not PASS."
+        )
+
+    # ---------------------------------------------------------
+    # Final Check
+    # ---------------------------------------------------------
+    expected_statuses = {
+        "quality_gate_passed",
+        "quality_revision_required",
+        "quality_escalated",
+    }
+
+    status_ok = (
+        final_status
+        in expected_statuses
+    )
+
+    print()
+    print(
+        "Valid quality-gate status:",
         status_ok,
     )
 
     print(
-        "Exactly one revision occurred:",
-        revision_ok,
-    )
-
-    print(
-        "Security review generated:",
-        security_exists,
-    )
-
-    print(
-        "Test review generated:",
-        testing_exists,
+        "Deterministic policy respected:",
+        policy_ok,
     )
 
     if (
         status_ok
-        and revision_ok
-        and security_exists
-        and testing_exists
+        and policy_ok
     ):
         print()
         print(
-            "CHECKPOINT 7D.11 TEST PASSED"
+            "CHECKPOINT 8 WORKFLOW TEST PASSED"
         )
     else:
         print()
         print(
-            "CHECKPOINT 7D.11 TEST FAILED"
+            "CHECKPOINT 8 WORKFLOW TEST FAILED"
         )
 
     print("=" * 70)

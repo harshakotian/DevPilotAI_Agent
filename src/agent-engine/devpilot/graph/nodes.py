@@ -20,6 +20,12 @@ from devpilot.models.review import (
 )
 from devpilot.agents.security_agent import SecurityReviewAgent
 from devpilot.agents.testing_agent import TestStrategyAgent
+from devpilot.agents.evaluator_agent import (
+    EvaluatorAgent,
+)
+from devpilot.services.evaluation_policy import (
+    enforce_evaluation_policy,
+)
 def receive_requirement(
     state: DevPilotState,
 ) -> DevPilotState:
@@ -499,4 +505,111 @@ def specialist_reviews_completed(
 
     return {
         "status": "specialist_reviews_completed",
+    }
+
+def evaluate_proposal(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Running Evaluator Agent...")
+
+    llm_service = create_llm_service()
+
+    evaluator = EvaluatorAgent(
+        llm_service=llm_service
+    )
+
+    # ---------------------------------------------------------
+    # Step 1:
+    # Let the LLM evaluate the complete proposal.
+    # ---------------------------------------------------------
+    evaluation = evaluator.evaluate(
+        requirement=state["requirement"],
+        requirement_analysis=state[
+            "requirement_analysis"
+        ],
+        architecture_proposal=state[
+            "architecture_proposal"
+        ],
+        implementation_plan=state[
+            "implementation_plan"
+        ],
+        security_review=state[
+            "security_review"
+        ],
+        test_review=state[
+            "test_review"
+        ],
+    )
+
+    # ---------------------------------------------------------
+    # Step 2:
+    # Apply deterministic application policy.
+    #
+    # This protects us from an inconsistent LLM verdict.
+    # ---------------------------------------------------------
+    evaluation = enforce_evaluation_policy(
+        evaluation=evaluation,
+        security_review=state[
+            "security_review"
+        ],
+        test_review=state[
+            "test_review"
+        ],
+    )
+
+    print("Evaluation complete.")
+
+    print(
+        "Verdict:",
+        evaluation.verdict.value,
+    )
+
+    print(
+        "Implementation Ready:",
+        evaluation.implementation_ready,
+    )
+
+    return {
+        "evaluation_result": evaluation,
+        "status": "proposal_evaluated",
+    }
+
+#Temporary Node for testing the evaluation agent
+def evaluation_passed(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print(
+        "Quality gate passed."
+    )
+
+    return {
+        "status": "quality_gate_passed",
+    }
+
+
+def evaluation_revision_required(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print(
+        "Quality gate requires revision."
+    )
+
+    return {
+        "status": "quality_revision_required",
+    }
+
+
+def evaluation_escalated(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print(
+        "Quality gate requires human escalation."
+    )
+
+    return {
+        "status": "quality_escalated",
     }

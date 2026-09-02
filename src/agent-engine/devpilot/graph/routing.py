@@ -4,7 +4,9 @@ from devpilot.models.review import (
     ReviewDecision,
     RevisionTarget,
 )
-
+from devpilot.models.evaluation import (
+    EvaluationVerdict,
+)
 MAX_REVISIONS = 3
 
 def route_after_requirement_analysis(
@@ -51,3 +53,24 @@ def route_revision_target(
         return "implementation_plan"
 
     return "invalid"
+
+def route_after_evaluation(
+    state: DevPilotState,
+) -> str:
+    evaluation = state[
+        "evaluation_result"
+    ]
+
+    if (
+        evaluation.verdict
+        == EvaluationVerdict.PASS
+    ):
+        return "pass"
+
+    if (
+        evaluation.verdict
+        == EvaluationVerdict.REVISE
+    ):
+        return "revise"
+
+    return "escalate"

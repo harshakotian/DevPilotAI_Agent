@@ -2,6 +2,10 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from devpilot.graph.nodes import (
+    evaluate_proposal,
+    evaluation_escalated,
+    evaluation_passed,
+    evaluation_revision_required,
     receive_requirement,
     validate_requirement,
     analyze_requirement,
@@ -21,6 +25,7 @@ from devpilot.graph.nodes import (
 )
 
 from devpilot.graph.routing import (
+    route_after_evaluation,
     route_after_requirement_analysis,
     route_after_human_review,
     route_revision_target,
@@ -126,6 +131,26 @@ def build_workflow():
         revision_limit_reached,
     )
 
+    workflow.add_node(
+        "evaluate_proposal",
+        evaluate_proposal,
+    )
+
+    workflow.add_node(
+        "evaluation_passed",
+        evaluation_passed,
+    )
+
+    workflow.add_node(
+        "evaluation_revision_required",
+        evaluation_revision_required,
+    )
+
+    workflow.add_node(
+        "evaluation_escalated",
+        evaluation_escalated,
+    )
+    
     # ---------------------------------------------------------
     # Initial Workflow
     # ---------------------------------------------------------
@@ -250,6 +275,31 @@ def build_workflow():
 
     workflow.add_edge(
         "specialist_reviews_completed",
+        "evaluate_proposal",
+    )
+
+    workflow.add_conditional_edges(
+        "evaluate_proposal",
+        route_after_evaluation,
+        {
+            "pass": "evaluation_passed",
+            "revise": "evaluation_revision_required",
+            "escalate": "evaluation_escalated",
+        },
+    )
+
+    workflow.add_edge(
+        "evaluation_passed",
+        END,
+    )
+
+    workflow.add_edge(
+        "evaluation_revision_required",
+        END,
+    )
+
+    workflow.add_edge(
+        "evaluation_escalated",
         END,
     )
     # ---------------------------------------------------------
