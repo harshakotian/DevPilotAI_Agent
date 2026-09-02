@@ -15,6 +15,9 @@ from devpilot.graph.nodes import (
     review_rejected,
     prepare_revision,
     revision_limit_reached,
+    perform_security_review,
+    perform_test_review,
+    specialist_reviews_completed,
 )
 
 from devpilot.graph.routing import (
@@ -91,6 +94,21 @@ def build_workflow():
     workflow.add_node(
         "approval_completed",
         approval_completed,
+    )
+
+    workflow.add_node(
+        "perform_security_review",
+        perform_security_review,
+    )
+
+    workflow.add_node(
+        "perform_test_review",
+        perform_test_review,
+    )
+
+    workflow.add_node(
+        "specialist_reviews_completed",
+        specialist_reviews_completed,
     )
 
     workflow.add_node(
@@ -199,11 +217,41 @@ def build_workflow():
     # Approved Path
     # ---------------------------------------------------------
 
+    # workflow.add_edge(
+    #     "approval_completed",
+    #     END,
+    # )
+
+    # ---------------------------------------------------------
+    # Fan-Out Path for Specialist Reviews (Security & Testing)
+    # ---------------------------------------------------------
+    
     workflow.add_edge(
         "approval_completed",
-        END,
+        "perform_security_review",
     )
 
+    workflow.add_edge(
+        "approval_completed",
+        "perform_test_review",
+    )
+
+    # ---------------------------------------------------------
+    # Fan-In Path for Specialist Reviews (Security & Testing)
+    # ---------------------------------------------------------
+    
+    workflow.add_edge(
+        [
+            "perform_security_review",
+            "perform_test_review",
+        ],
+        "specialist_reviews_completed",
+    )
+
+    workflow.add_edge(
+        "specialist_reviews_completed",
+        END,
+    )
     # ---------------------------------------------------------
     # Rejected Path
     # ---------------------------------------------------------

@@ -2,6 +2,7 @@ from devpilot.agents.architect_agent import ArchitectAgent
 from devpilot.agents.planning_agent import ImplementationPlanningAgent
 from devpilot.agents.requirement_agent import RequirementAnalyst
 from devpilot.agents.repository_agent import RepositoryAnalyst
+from devpilot.agents.testing_agent import TestStrategyAgent
 from devpilot.services.llm_factory import create_llm_service
 from devpilot.services.repository_evidence_service import (
     RepositoryEvidenceService,
@@ -10,8 +11,8 @@ from devpilot.services.repository_evidence_service import (
 
 def main():
     requirement = (
-        "Add distributed caching to the Product API "
-        "using Redis."
+        "Add distributed caching to the "
+        "Product API using Redis."
     )
 
     repository_path = (
@@ -24,8 +25,10 @@ def main():
         llm_service=llm_service
     )
 
-    requirement_analysis = requirement_analyst.analyze(
-        requirement
+    requirement_analysis = (
+        requirement_analyst.analyze(
+            requirement
+        )
     )
 
     evidence_service = RepositoryEvidenceService()
@@ -38,10 +41,12 @@ def main():
         llm_service=llm_service
     )
 
-    repository_analysis = repository_analyst.analyze(
-        requirement=requirement,
-        requirement_analysis=requirement_analysis,
-        evidence=evidence,
+    repository_analysis = (
+        repository_analyst.analyze(
+            requirement=requirement,
+            requirement_analysis=requirement_analysis,
+            evidence=evidence,
+        )
     )
 
     architect = ArchitectAgent(
@@ -65,34 +70,28 @@ def main():
         architecture_proposal=architecture_proposal,
     )
 
+    test_agent = TestStrategyAgent(
+        llm_service=llm_service
+    )
+
+    test_review = test_agent.review(
+        requirement=requirement,
+        requirement_analysis=requirement_analysis,
+        repository_analysis=repository_analysis,
+        architecture_proposal=architecture_proposal,
+        implementation_plan=implementation_plan,
+    )
+
     print()
-    print("Implementation Plan")
+    print("Test Review")
     print()
 
     print(
-        implementation_plan.model_dump_json(
+        test_review.model_dump_json(
             indent=2
         )
     )
 
-    first_decision = {
-        "decision": "revise",
-        "comments": (
-            "Architecture needs stronger Redis "
-            "failure handling."
-        ),
-        "requested_changes": [
-            (
-                "Define behavior when Redis is "
-                "temporarily unavailable."
-            ),
-            (
-                "Avoid coupling ProductService "
-                "directly to Redis-specific APIs."
-            ),
-        ],
-        "revision_target": "architecture",
-    }
 
 if __name__ == "__main__":
     main()

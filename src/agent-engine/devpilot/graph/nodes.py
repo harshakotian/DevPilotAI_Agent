@@ -18,6 +18,8 @@ from langgraph.types import interrupt
 from devpilot.models.review import (
     HumanReviewResult,
 )
+from devpilot.agents.security_agent import SecurityReviewAgent
+from devpilot.agents.testing_agent import TestStrategyAgent
 def receive_requirement(
     state: DevPilotState,
 ) -> DevPilotState:
@@ -386,4 +388,115 @@ def revision_limit_reached(
     return {
         **state,
         "status": "revision_limit_reached",
+    }
+
+def perform_security_review(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Running Security Review Agent...")
+
+    llm_service = create_llm_service()
+
+    security_agent = SecurityReviewAgent(
+        llm_service=llm_service
+    )
+
+    security_review = security_agent.review(
+        requirement=state["requirement"],
+        requirement_analysis=state[
+            "requirement_analysis"
+        ],
+        repository_analysis=state[
+            "repository_analysis"
+        ],
+        architecture_proposal=state[
+            "architecture_proposal"
+        ],
+        implementation_plan=state[
+            "implementation_plan"
+        ],
+    )
+
+    print("Security review complete.")
+
+    return {
+        "security_review": security_review,
+    }
+
+def perform_test_review(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Running Test Strategy Agent...")
+
+    llm_service = create_llm_service()
+
+    test_agent = TestStrategyAgent(
+        llm_service=llm_service
+    )
+
+    test_review = test_agent.review(
+        requirement=state["requirement"],
+        requirement_analysis=state[
+            "requirement_analysis"
+        ],
+        repository_analysis=state[
+            "repository_analysis"
+        ],
+        architecture_proposal=state[
+            "architecture_proposal"
+        ],
+        implementation_plan=state[
+            "implementation_plan"
+        ],
+    )
+
+    print("Test strategy review complete.")
+
+    return {
+        "test_review": test_review,
+    }
+
+def specialist_reviews_completed(
+    state: DevPilotState,
+) -> DevPilotState:
+    print()
+    print("Specialist reviews completed.")
+
+    security_review = state.get(
+        "security_review"
+    )
+
+    test_review = state.get(
+        "test_review"
+    )
+
+    if security_review is None:
+        raise ValueError(
+            "Security review is missing."
+        )
+
+    if test_review is None:
+        raise ValueError(
+            "Test review is missing."
+        )
+
+    print(
+        "Security Risk:",
+        security_review.overall_risk.value,
+    )
+
+    print(
+        "Security Blocked:",
+        security_review.implementation_blocked,
+    )
+
+    print(
+        "Testing Blocked:",
+        test_review.implementation_blocked,
+    )
+
+    return {
+        "status": "specialist_reviews_completed",
     }
