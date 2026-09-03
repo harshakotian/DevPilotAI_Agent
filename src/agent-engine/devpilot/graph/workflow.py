@@ -7,10 +7,12 @@ from devpilot.graph.nodes import (
     evaluation_passed,
     evaluation_revision_required,
     receive_requirement,
+    repository_recovery_required,
     validate_requirement,
     analyze_requirement,
     request_clarification,
     collect_repository_evidence,
+    retry_exhausted,
     analyze_repository,
     design_architecture,
     create_implementation_plan,
@@ -22,12 +24,14 @@ from devpilot.graph.nodes import (
     perform_security_review,
     perform_test_review,
     specialist_reviews_completed,
+    workflow_failed,
 )
 
 from devpilot.graph.routing import (
     route_after_evaluation,
     route_after_requirement_analysis,
     route_after_human_review,
+    route_after_repository_evidence,
     route_revision_target,
 )
 
@@ -76,6 +80,20 @@ def build_workflow():
         collect_repository_evidence,
     )
 
+    workflow.add_node(
+        "retry_exhausted",
+        retry_exhausted,
+    )
+
+    workflow.add_node(
+        "repository_recovery_required",
+        repository_recovery_required,
+    )
+
+    workflow.add_node(
+        "workflow_failed",
+        workflow_failed,
+    )
     workflow.add_node(
         "analyze_repository",
         analyze_repository,
@@ -196,11 +214,33 @@ def build_workflow():
     # Repository Intelligence Path
     # ---------------------------------------------------------
 
-    workflow.add_edge(
+    workflow.add_conditional_edges(
         "collect_repository_evidence",
-        "analyze_repository",
+        route_after_repository_evidence,
+        {
+            "success": "analyze_repository",
+            "retry": "collect_repository_evidence",
+            "retry_exhausted": "retry_exhausted",
+            "human": "repository_recovery_required",
+            "fatal": "workflow_failed",
+        },
     )
 
+    workflow.add_edge(
+        "workflow_failed",
+        END,
+    )
+
+    workflow.add_edge(
+        "repository_recovery_required",
+        "collect_repository_evidence",
+    )
+
+    workflow.add_edge(
+        "retry_exhausted",
+        END,
+    )
+    
     workflow.add_edge(
         "analyze_repository",
         "design_architecture",
